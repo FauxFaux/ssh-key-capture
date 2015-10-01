@@ -28,7 +28,6 @@ public class KeyCapture implements AutoCloseable {
     private final Map<String, String> userDatabase = new HashMap<>();
     @GuardedBy("this")
     private final Map<String, String> issuedTokens = new HashMap<>();
-    private Map<Object, Object> users;
 
     public KeyCapture() {
         sshd.setPort(9422);
