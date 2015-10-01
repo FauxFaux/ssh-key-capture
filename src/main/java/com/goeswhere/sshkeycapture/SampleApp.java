@@ -6,7 +6,7 @@ import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 
 public class SampleApp {
-    public static void main(String[] args) throws IOException, InterruptedException {
+    public static void main(String[] args) throws IOException {
 
         try (final KeyCapture keyCapture = new KeyCapture();
              final BufferedReader stdin = new BufferedReader(new InputStreamReader(System.in, StandardCharsets.UTF_8))) {
@@ -28,7 +28,7 @@ public class SampleApp {
         }
     }
 
-    private static String trimAndCoalesce(String line) throws IOException {
+    private static String trimAndCoalesce(String line) {
         if (null == line) {
             return "";
         }
