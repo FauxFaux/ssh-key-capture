@@ -1,0 +1,20 @@
+apply plugin: 'java'
+apply plugin: 'application'
+
+sourceCompatibility = 1.8
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    compile 'org.apache.sshd:sshd-core:1.0.0';
+
+    compile 'org.slf4j:slf4j-simple:1.7.12';
+}
+
+mainClassName = "com.goeswhere.sshkeycapture.KeyCapture"
+
+task wrapper(type: Wrapper) {
+    gradleVersion = '2.5'
+}
