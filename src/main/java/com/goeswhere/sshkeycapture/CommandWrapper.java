@@ -1,5 +1,7 @@
 package com.goeswhere.sshkeycapture;
 
+import com.sun.corba.se.spi.activation.Server;
+import org.apache.sshd.common.Factory;
 import org.apache.sshd.server.Command;
 import org.apache.sshd.server.Environment;
 import org.apache.sshd.server.ExitCallback;
@@ -11,6 +13,7 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.function.Supplier;
 
 public abstract class CommandWrapper implements Command, SessionAware {
     private static final Logger logger = LoggerFactory.getLogger(CommandWrapper.class);
@@ -19,8 +22,7 @@ public abstract class CommandWrapper implements Command, SessionAware {
     private InputStream in;
     private OutputStream out;
     private OutputStream err;
-    private String user;
-    private boolean justAdded;
+    protected ServerSession session;
 
     @Override
     public void start(Environment env) throws IOException {
@@ -41,12 +43,25 @@ public abstract class CommandWrapper implements Command, SessionAware {
         }.start();
     }
 
+    @FunctionalInterface
+    public interface CommandRunner {
+        int run(InputStream in, OutputStream out, OutputStream err, ServerSession session) throws IOException;
+    }
+
+    public static Factory<Command> wrap(CommandRunner runner) {
+        return () -> new CommandWrapper() {
+            @Override
+            public int run(InputStream in, OutputStream out, OutputStream err) throws IOException {
+                return runner.run(in, out, err, session);
+            }
+        };
+    }
+
     public abstract int run(InputStream in, OutputStream out, OutputStream err) throws IOException;
 
     @Override
     public void setSession(ServerSession session) {
-        this.user = session.getAttribute(KeyCapture.ACCOUNT_NAME);
-        this.justAdded =  session.getAttribute(KeyCapture.JUST_ADDED);
+        this.session = session;
     }
 
     @Override
@@ -71,14 +86,6 @@ public abstract class CommandWrapper implements Command, SessionAware {
 
     @Override
     public void destroy() {
-    }
-
-    protected String getUser() {
-        return user;
-    }
-
-    protected boolean justAdded() {
-        return justAdded;
     }
 
     private static void closeQuietly(OutputStream... streams) {

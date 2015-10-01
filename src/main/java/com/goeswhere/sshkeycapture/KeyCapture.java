@@ -66,20 +66,17 @@ public class KeyCapture {
             }
         });
 
-        sshd.setShellFactory(() -> new CommandWrapper() {
-            @Override
-            public int run(InputStream in, OutputStream out, OutputStream err) throws IOException {
-                try (final PrintStream ps = new PrintStream(out)) {
-                    if (justAdded()) {
-                        ps.println("Added successfully!  You can now log-in normally.\r");
-                        return 0;
-                    }
-                    ps.println("Hi!  You've successfully authenticated as " + getUser() + "\r");
-                    ps.println("Bye!\r");
+        sshd.setShellFactory(CommandWrapper.wrap((in, out, err, session) -> {
+            try (final PrintStream ps = new PrintStream(out)) {
+                if (session.getAttribute(JUST_ADDED)) {
+                    ps.println("Added successfully!  You can now log-in normally.\r");
+                    return 0;
                 }
-                return 0;
+                ps.println("Hi!  You've successfully authenticated as " + session.getAttribute(ACCOUNT_NAME) + "\r");
+                ps.println("Bye!\r");
             }
-        });
+            return 0;
+        }));
 
         sshd.start();
         readyToShutdown.await();
