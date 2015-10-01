@@ -19,3 +19,7 @@ mainClassName = "com.goeswhere.sshkeycapture.SampleApp"
 task wrapper(type: Wrapper) {
     gradleVersion = '2.5'
 }
+
+run {
+    standardInput = System.in
+}
