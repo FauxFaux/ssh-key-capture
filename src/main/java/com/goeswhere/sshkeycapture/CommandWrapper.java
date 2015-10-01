@@ -1,6 +1,5 @@
 package com.goeswhere.sshkeycapture;
 
-import com.sun.corba.se.spi.activation.Server;
 import org.apache.sshd.common.Factory;
 import org.apache.sshd.server.Command;
 import org.apache.sshd.server.Environment;
@@ -13,7 +12,6 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.util.function.Supplier;
 
 public abstract class CommandWrapper implements Command, SessionAware {
     private static final Logger logger = LoggerFactory.getLogger(CommandWrapper.class);
