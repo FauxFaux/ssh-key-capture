@@ -15,7 +15,7 @@ public class SampleApp {
 
             while (true) {
                 System.out.print("Enter a new user name, or blank to exit: ");
-                final String user = stdin.readLine().trim();
+                final String user = trimAndCoalesce(stdin.readLine());
                 if (user.isEmpty()) {
                     printCapturedUsers(keyCapture);
                     return;
@@ -26,6 +26,13 @@ public class SampleApp {
                 System.out.println("Ask '" + user + "' to ssh to '" + newUuid + "@...'");
             }
         }
+    }
+
+    private static String trimAndCoalesce(String line) throws IOException {
+        if (null == line) {
+            return "";
+        }
+        return line.trim();
     }
 
     private static void printCapturedUsers(KeyCapture keyCapture) {
