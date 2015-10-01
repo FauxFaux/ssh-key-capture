@@ -9,11 +9,12 @@ repositories {
 
 dependencies {
     compile 'org.apache.sshd:sshd-core:1.0.0';
+    compile 'com.google.code.findbugs:jsr305:3.0.0';
 
     compile 'org.slf4j:slf4j-simple:1.7.12';
 }
 
-mainClassName = "com.goeswhere.sshkeycapture.KeyCapture"
+mainClassName = "com.goeswhere.sshkeycapture.SampleApp"
 
 task wrapper(type: Wrapper) {
     gradleVersion = '2.5'

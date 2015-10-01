@@ -7,42 +7,47 @@ import org.apache.sshd.server.SshServer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.BufferedReader;
+import javax.annotation.concurrent.GuardedBy;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.io.PrintStream;
-import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
 import java.security.KeyPair;
 import java.security.PublicKey;
 import java.util.*;
 
-public class KeyCapture {
-    public static final Session.AttributeKey<String> ACCOUNT_NAME = new Session.AttributeKey<>();
-    public static final Session.AttributeKey<Boolean> JUST_ADDED = new Session.AttributeKey<>();
+public class KeyCapture implements AutoCloseable {
     private static final Logger logger = LoggerFactory.getLogger(KeyCapture.class);
 
+    static final Session.AttributeKey<String> ACCOUNT_NAME = new Session.AttributeKey<>();
+    static final Session.AttributeKey<Boolean> JUST_ADDED = new Session.AttributeKey<>();
 
-    public static void main(String[] args) throws IOException, InterruptedException {
-        SshServer sshd = SshServer.setUpDefaultServer();
+    private final SshServer sshd = SshServer.setUpDefaultServer();
+    private final KeyPair serverKeyPair = serverKeyPair();
 
-        final KeyPair serverKeyPair = serverKeyPair();
-        final Map<String, String> userDatabase = new HashMap<>();
-        final Map<String, String> issuedTokens = new HashMap<>();
+    @GuardedBy("this")
+    private final Map<String, String> userDatabase = new HashMap<>();
+    @GuardedBy("this")
+    private final Map<String, String> issuedTokens = new HashMap<>();
+    private Map<Object, Object> users;
 
+    public KeyCapture() {
         sshd.setPort(9422);
 
         sshd.setPublickeyAuthenticator((username, key, session) -> {
-            final String newUser = issuedTokens.get(username);
-            if (null != newUser) {
-                userDatabase.put(newUser, fingerprint(key));
-                session.setAttribute(JUST_ADDED, true);
-                session.setAttribute(ACCOUNT_NAME, username);
-                return true;
-            }
-
-            final String expectedKey = userDatabase.get(username);
+            final String expectedKey;
             final String fingerprint = fingerprint(key);
+
+            synchronized (KeyCapture.this) {
+                final String newUser = issuedTokens.get(username);
+                if (null != newUser) {
+                    userDatabase.put(newUser, fingerprint);
+                    session.setAttribute(JUST_ADDED, true);
+                    session.setAttribute(ACCOUNT_NAME, username);
+                    return true;
+                }
+
+                expectedKey = userDatabase.get(username);
+            }
 
             logger.info("{} trying to authenticate with {}, db contains {}", username, fingerprint, expectedKey);
 
@@ -68,7 +73,9 @@ public class KeyCapture {
 
                 if (session.getAttribute(JUST_ADDED)) {
                     ps.println("Added successfully!  You can now log-in normally.\r");
-                    issuedTokens.remove(whom);
+                    synchronized (KeyCapture.this) {
+                        issuedTokens.remove(whom);
+                    }
                     return 0;
                 }
                 ps.println("Hi!  You've successfully authenticated as " + whom + "\r");
@@ -76,23 +83,14 @@ public class KeyCapture {
             }
             return 0;
         }));
+    }
 
+    public void start() throws IOException {
         sshd.start();
+    }
 
-            try (final BufferedReader stdin = new BufferedReader(new InputStreamReader(System.in, StandardCharsets.UTF_8))) {
-                while (true) {
-                    System.out.print("Enter a new user name, or blank to exit: ");
-                    final String user = stdin.readLine().trim();
-                    if (user.isEmpty()) {
-                        return;
-                    }
-
-                    final String newUuid = UUID.randomUUID().toString();
-                    issuedTokens.put(newUuid, user);
-
-                    System.out.println("Ask '" + user + "' to ssh to '" + newUuid + "@...'");
-                }
-        }
+    public void close() throws IOException {
+        sshd.close();
     }
 
     private static KeyPair serverKeyPair() {
@@ -103,8 +101,17 @@ public class KeyCapture {
         }
     }
 
-    public static String fingerprint(PublicKey key) {
+    static String fingerprint(PublicKey key) {
         return key.getAlgorithm() + " " + Base64.getEncoder().encodeToString(key.getEncoded());
     }
 
+    public synchronized String newTokenFor(String user) {
+        final String newUuid = UUID.randomUUID().toString();
+        issuedTokens.put(newUuid, user);
+        return newUuid;
+    }
+
+    public Map<String, String> getUsers() {
+        return Collections.unmodifiableMap(userDatabase);
+    }
 }
